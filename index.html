@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聲波傳播與物理量對應模擬 (Uniform Gas Sound Wave)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        input[type=range] {
+            accent-color: #38bdf8;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-3 md:p-6">
+
+    <!-- Main Container -->
+    <div class="w-full max-w-6xl space-y-4 md:space-y-6">
+        
+        <!-- Header -->
+        <header class="bg-slate-800/80 backdrop-blur border border-slate-700/60 rounded-2xl p-4 md:p-6 shadow-xl flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-400 via-teal-300 to-indigo-400">
+                    聲波傳播物理模擬 (均勻分佈縱波)
+                </h1>
+                <p class="text-xs md:text-sm text-slate-400 mt-1">
+                    空間均勻氣體分子的往復振動，以及位移、密度與壓力的相位對應
+                </p>
+            </div>
+            
+            <!-- Quick Stats Badge -->
+            <div class="flex items-center gap-3 bg-slate-900/60 px-4 py-2 rounded-xl border border-slate-700/50 text-xs font-mono">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-slate-300">FPS: <span id="fpsDisplay" class="text-emerald-400 font-bold">60</span></span>
+                </div>
+                <div class="w-px h-4 bg-slate-700"></div>
+                <div>
+                    <span class="text-slate-400">週期 T: </span>
+                    <span id="periodDisplay" class="text-sky-300 font-bold">1.00s</span>
+                </div>
+                <div class="w-px h-4 bg-slate-700"></div>
+                <div>
+                    <span class="text-slate-400">波長 λ: </span>
+                    <span id="wavelengthDisplay" class="text-indigo-300 font-bold">200px</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Control Panel -->
+        <section class="bg-slate-800/80 backdrop-blur border border-slate-700/60 rounded-2xl p-4 md:p-5 shadow-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- Speed Control -->
+            <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700/40 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-1">
+                    <label for="speedSlider" class="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        波速 (Wave Speed, v)
+                    </label>
+                    <span id="speedVal" class="text-xs font-mono text-sky-400 font-bold">200 px/s</span>
+                </div>
+                <input type="range" id="speedSlider" min="50" max="500" step="10" value="200" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <!-- Frequency Control -->
+            <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700/40 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-1">
+                    <label for="freqSlider" class="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        頻率 (Frequency, f)
+                    </label>
+                    <span id="freqVal" class="text-xs font-mono text-emerald-400 font-bold">1.0 Hz</span>
+                </div>
+                <input type="range" id="freqSlider" min="0.2" max="3.0" step="0.1" value="1.0" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <!-- Amplitude Control -->
+            <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700/40 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-1">
+                    <label for="ampSlider" class="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/></svg>
+                        振幅 (Amplitude, A)
+                    </label>
+                    <span id="ampVal" class="text-xs font-mono text-indigo-400 font-bold">25 px</span>
+                </div>
+                <input type="range" id="ampSlider" min="0" max="50" step="1" value="25" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <!-- Particle Count Control -->
+            <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-700/40 flex flex-col justify-between">
+                <div class="flex justify-between items-center mb-1">
+                    <label for="countSlider" class="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        分子數量 (Particles)
+                    </label>
+                    <span id="countVal" class="text-xs font-mono text-amber-400 font-bold">1200</span>
+                </div>
+                <input type="range" id="countSlider" min="200" max="2000" step="50" value="1200" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <!-- Buttons & Toggles Bar -->
+            <div class="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-700/40">
+                
+                <!-- Action Buttons -->
+                <div class="flex items-center gap-2">
+                    <button id="playBtn" class="flex items-center gap-2 px-5 py-2 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-slate-950 font-semibold rounded-xl text-xs md:text-sm transition-all shadow-lg shadow-sky-500/20">
+                        <svg id="playIcon" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        <span id="playBtnText">Pause</span>
+                    </button>
+
+                    <button id="resetBtn" class="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-slate-200 font-medium rounded-xl text-xs md:text-sm transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        重置時間
+                    </button>
+                </div>
+
+                <!-- Feature Toggle Checkboxes & Mode Selector -->
+                <div class="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-300">
+                    <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700">
+                        <button id="btnGrid" class="px-2.5 py-1 rounded-md bg-sky-600 text-white font-semibold transition">整齊網格</button>
+                        <button id="btnRandom" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-slate-200 transition">隨機均勻</button>
+                    </div>
+
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                        <input type="checkbox" id="showTrackers" checked class="w-4 h-4 rounded text-sky-500 bg-slate-900 border-slate-700 focus:ring-0">
+                        <span>標記追蹤分子 (紅色)</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                        <input type="checkbox" id="showEquilibrium" checked class="w-4 h-4 rounded text-sky-500 bg-slate-900 border-slate-700 focus:ring-0">
+                        <span>顯示平衡位置對齊虛線</span>
+                    </label>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Main Simulation Display -->
+        <main class="space-y-4">
+            
+            <!-- Canvas 1: Gas Particle Box -->
+            <div class="bg-slate-800/80 backdrop-blur border border-slate-700/60 rounded-2xl p-4 shadow-xl relative">
+                <div class="flex justify-between items-center mb-2 px-1">
+                    <h2 class="text-sm font-semibold text-sky-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                        氣體分子空間動態
+                    </h2>
+                    <span class="text-[11px] text-slate-400">聲波傳播方向 ➔ (縱波，左右位移)</span>
+                </div>
+                <div class="relative w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner">
+                    <canvas id="particleCanvas" class="w-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Canvas 2: Synchronized Physics Charts -->
+            <div class="bg-slate-800/80 backdrop-blur border border-slate-700/60 rounded-2xl p-4 shadow-xl relative">
+                <div class="flex justify-between items-center mb-2 px-1">
+                    <h2 class="text-sm font-semibold text-emerald-300 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        物理量空間圖
+                    </h2>
+                    <div class="flex gap-3 text-[11px] font-mono">
+                        <span class="text-sky-400">─ 1. 位移 Δx</span>
+                        <span class="text-emerald-400">─ 2. 密度 ρ</span>
+                        <span class="text-amber-400">─ 3. 壓力 P</span>
+                    </div>
+                </div>
+                <div class="relative w-full rounded-xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner">
+                    <canvas id="chartCanvas" class="w-full block"></canvas>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Physics Legend & Explanation Footer -->
+        <footer class="bg-slate-800/50 border border-slate-700/40 rounded-2xl p-4 text-xs text-slate-400 space-y-2">
+            <div class="font-semibold text-slate-300 flex items-center gap-1.5 text-xs">
+                <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                物理觀念解析：
+            </div>
+            <ul class="grid grid-cols-1 md:grid-cols-3 gap-3 pl-1 pt-1">
+                <li class="bg-slate-900/40 p-2.5 rounded-lg border border-slate-800">
+                    <strong class="text-sky-300 block mb-1">1. 平衡狀態與縱波位移</strong>
+                    當振幅 $A=0$ 或無聲波時，氣體分子呈現均勻分佈。分子隨時間進行前後往復振動，位移公式為 $s(x) = A\cdot\sin(kx - \omega t)$。
+                </li>
+                <li class="bg-slate-900/40 p-2.5 rounded-lg border border-slate-800">
+                    <strong class="text-emerald-300 block mb-1">2. 密部 (Compression)</strong>
+                    當分子向中心會聚，位移 $s(x)=0$ 且斜率為負時，分子間距最小，精準對應氣體密度與壓力的<b>最大波峰</b>。
+                </li>
+                <li class="bg-slate-900/40 p-2.5 rounded-lg border border-slate-800">
+                    <strong class="text-amber-300 block mb-1">3. 疏部 (Rarefaction)</strong>
+                    當分子向兩側發散，位移 $s(x)=0$ 且斜率為正時，分子間距最大，精準對應氣體密度與壓力的<b>最小波谷</b>。
+                </li>
+            </ul>
+        </footer>
+
+    </div>
+
+    <!-- Script Section -->
+    <script>
+        // --- High DPI Canvas Setup ---
+        function setupCanvas(canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            return { ctx, width: rect.width, height: rect.height };
+        }
+
+        // --- Global Simulation State ---
+        const state = {
+            v: 200,             // Wave speed (px/s)
+            f: 1.0,             // Frequency (Hz)
+            A: 25,              // Displacement Amplitude (px)
+            particleCount: 1200,// Total particles
+            distMode: 'grid',   // 'grid' or 'random'
+            isPlaying: true,
+            time: 0,
+            lastTimestamp: 0,
+            showTrackers: true,
+            showEquilibrium: true,
+            
+            particles: [],
+            trackerIndices: []
+        };
+
+        // DOM Elements
+        const particleCanvas = document.getElementById('particleCanvas');
+        const chartCanvas = document.getElementById('chartCanvas');
+        let particleCtxInfo, chartCtxInfo;
+
+        const speedSlider = document.getElementById('speedSlider');
+        const freqSlider = document.getElementById('freqSlider');
+        const ampSlider = document.getElementById('ampSlider');
+        const countSlider = document.getElementById('countSlider');
+
+        const speedVal = document.getElementById('speedVal');
+        const freqVal = document.getElementById('freqVal');
+        const ampVal = document.getElementById('ampVal');
+        const countVal = document.getElementById('countVal');
+
+        const playBtn = document.getElementById('playBtn');
+        const playBtnText = document.getElementById('playBtnText');
+        const playIcon = document.getElementById('playIcon');
+        const resetBtn = document.getElementById('resetBtn');
+
+        const btnGrid = document.getElementById('btnGrid');
+        const btnRandom = document.getElementById('btnRandom');
+        const showTrackers = document.getElementById('showTrackers');
+        const showEquilibrium = document.getElementById('showEquilibrium');
+
+        const periodDisplay = document.getElementById('periodDisplay');
+        const wavelengthDisplay = document.getElementById('wavelengthDisplay');
+        const fpsDisplay = document.getElementById('fpsDisplay');
+
+        // Particle Class
+        class Particle {
+            constructor(x0, y0) {
+                this.x0 = x0; // Equilibrium X position
+                this.y0 = y0; // Y position
+                this.x = x0;  // Current X position
+            }
+
+            update(t, speed, freq, amp) {
+                const k = (2 * Math.PI * freq) / speed;
+                const omega = 2 * Math.PI * freq;
+                const displacement = amp * Math.sin(k * this.x0 - omega * t);
+                this.x = this.x0 + displacement;
+            }
+        }
+
+        /**
+         * Initialize Particles
+         */
+        function initParticles() {
+            const width = particleCtxInfo ? particleCtxInfo.width : particleCanvas.clientWidth;
+            const height = particleCtxInfo ? particleCtxInfo.height : particleCanvas.clientHeight;
+
+            if (!width || !height) return;
+
+            state.particles = [];
+
+            if (state.distMode === 'grid') {
+                const aspectRatio = width / height;
+                const rows = Math.max(4, Math.floor(Math.sqrt(state.particleCount / aspectRatio)));
+                const cols = Math.floor(rows * aspectRatio);
+
+                const dx = width / cols;
+                const dy = height / rows;
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const x0 = (c + 0.5) * dx;
+                        const y0 = (r + 0.5) * dy;
+                        state.particles.push(new Particle(x0, y0));
+                    }
+                }
+            } else {
+                for (let i = 0; i < state.particleCount; i++) {
+                    const x0 = Math.random() * width;
+                    const y0 = Math.random() * height;
+                    state.particles.push(new Particle(x0, y0));
+                }
+            }
+
+            // Select tracker indices
+            state.trackerIndices = [];
+            if (state.particles.length > 0) {
+                const step = Math.floor(state.particles.length / 5);
+                for (let i = 1; i <= 4; i++) {
+                    state.trackerIndices.push(i * step);
+                }
+            }
+        }
+
+        function handleResize() {
+            particleCanvas.style.height = "180px";
+            chartCanvas.style.height = "320px";
+
+            particleCtxInfo = setupCanvas(particleCanvas);
+            chartCtxInfo = setupCanvas(chartCanvas);
+
+            initParticles();
+        }
+
+        function updateDerivedPhysics() {
+            const T = 1 / state.f;
+            const lambda = state.v / state.f;
+
+            periodDisplay.textContent = T.toFixed(2) + 's';
+            wavelengthDisplay.textContent = Math.round(lambda) + 'px';
+
+            speedVal.textContent = state.v + ' px/s';
+            freqVal.textContent = state.f.toFixed(1) + ' Hz';
+            ampVal.textContent = state.A + ' px';
+            countVal.textContent = state.particles.length;
+        }
+
+        // Control Listeners
+        speedSlider.addEventListener('input', (e) => {
+            state.v = parseFloat(e.target.value);
+            updateDerivedPhysics();
+        });
+
+        freqSlider.addEventListener('input', (e) => {
+            state.f = parseFloat(e.target.value);
+            updateDerivedPhysics();
+        });
+
+        ampSlider.addEventListener('input', (e) => {
+            state.A = parseFloat(e.target.value);
+            updateDerivedPhysics();
+        });
+
+        countSlider.addEventListener('input', (e) => {
+            state.particleCount = parseInt(e.target.value);
+            initParticles();
+            updateDerivedPhysics();
+        });
+
+        btnGrid.addEventListener('click', () => {
+            state.distMode = 'grid';
+            btnGrid.className = 'px-2.5 py-1 rounded-md bg-sky-600 text-white font-semibold transition';
+            btnRandom.className = 'px-2.5 py-1 rounded-md text-slate-400 hover:text-slate-200 transition';
+            initParticles();
+            updateDerivedPhysics();
+        });
+
+        btnRandom.addEventListener('click', () => {
+            state.distMode = 'random';
+            btnRandom.className = 'px-2.5 py-1 rounded-md bg-sky-600 text-white font-semibold transition';
+            btnGrid.className = 'px-2.5 py-1 rounded-md text-slate-400 hover:text-slate-200 transition';
+            initParticles();
+            updateDerivedPhysics();
+        });
+
+        playBtn.addEventListener('click', () => {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                playBtnText.textContent = 'Pause';
+                playBtn.classList.replace('bg-emerald-500', 'bg-sky-500');
+                playIcon.innerHTML = `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
+            } else {
+                playBtnText.textContent = 'Play';
+                playBtn.classList.replace('bg-sky-500', 'bg-emerald-500');
+                playIcon.innerHTML = `<path d="M8 5v14l11-7z"/>`;
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            state.time = 0;
+        });
+
+        showTrackers.addEventListener('change', (e) => state.showTrackers = e.target.checked);
+        showEquilibrium.addEventListener('change', (e) => state.showEquilibrium = e.target.checked);
+
+        // --- Particle Renderer ---
+        function renderParticles(ctx, width, height) {
+            ctx.clearRect(0, 0, width, height);
+
+            // Container border
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(5, 5, width - 10, height - 10);
+
+            // Render Gas Particles
+            for (let i = 0; i < state.particles.length; i++) {
+                const p = state.particles[i];
+                p.update(state.time, state.v, state.f, state.A);
+
+                const isTracker = state.showTrackers && state.trackerIndices.includes(i);
+
+                if (isTracker) {
+                    // Tracker equilibrium dashed line
+                    if (state.showEquilibrium) {
+                        ctx.save();
+                        ctx.setLineDash([3, 3]);
+                        ctx.strokeStyle = '#f43f5e';
+                        ctx.lineWidth = 1.2;
+                        ctx.beginPath();
+                        ctx.moveTo(p.x0, 5);
+                        ctx.lineTo(p.x0, height - 5);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+
+                    // Vector connection line
+                    ctx.strokeStyle = 'rgba(244, 63, 94, 0.6)';
+                    ctx.lineWidth = 1.8;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x0, p.y0);
+                    ctx.lineTo(p.x, p.y0);
+                    ctx.stroke();
+
+                    // Tracker Particle Render
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.shadowColor = '#f43f5e';
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y0, 4.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                } else {
+                    // Standard Particle Render (Unified White Color)
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y0, 2.2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                }
+            }
+        }
+
+        // --- Synchronized Physics Charts Renderer ---
+        function renderCharts(ctx, width, height) {
+            ctx.clearRect(0, 0, width, height);
+
+            const padding = 15;
+            const chartHeight = (height - 30) / 3;
+
+            const lambda = state.v / state.f;
+            const k = (2 * Math.PI) / lambda;
+            const omega = 2 * Math.PI * state.f;
+
+            // Sub-chart Y-centers
+            const yCenter1 = 15 + chartHeight / 2;
+            const yCenter2 = 15 + chartHeight + chartHeight / 2;
+            const yCenter3 = 15 + chartHeight * 2 + chartHeight / 2;
+
+            // Chart horizontal dividers
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            [15 + chartHeight, 15 + chartHeight * 2].forEach(y => {
+                ctx.beginPath();
+                ctx.moveTo(10, y);
+                ctx.lineTo(width - 10, y);
+                ctx.stroke();
+            });
+
+            // Zero Reference Lines
+            [yCenter1, yCenter2, yCenter3].forEach(y => {
+                ctx.save();
+                ctx.setLineDash([2, 4]);
+                ctx.strokeStyle = '#475569';
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // Chart Labels
+            ctx.font = '11px Inter, sans-serif';
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillText('1. 位移 Δx (Displacement) [右移+, 左移-]', padding + 5, yCenter1 - chartHeight / 2 + 13);
+
+            ctx.fillStyle = '#34d399';
+            ctx.fillText('2. 氣體密度 ρ (Density) [密部=高波峰, 疏部=低波谷]', padding + 5, yCenter2 - chartHeight / 2 + 13);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillText('3. 氣體壓力 P (Pressure) [與密度同步]', padding + 5, yCenter3 - chartHeight / 2 + 13);
+
+            // Synchronized Tracker Projection Vertical Lines
+            if (state.showTrackers && state.showEquilibrium) {
+                state.trackerIndices.forEach(idx => {
+                    const p = state.particles[idx];
+                    if (p) {
+                        ctx.save();
+                        ctx.setLineDash([2, 3]);
+                        ctx.strokeStyle = 'rgba(244, 63, 94, 0.35)';
+                        ctx.beginPath();
+                        ctx.moveTo(p.x0, 5);
+                        ctx.lineTo(p.x0, height - 5);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                });
+            }
+
+            const curveAmp = chartHeight * 0.35;
+
+            // 1. Displacement Wave
+            ctx.beginPath();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            for (let x = padding; x <= width - padding; x += 2) {
+                const dx = Math.sin(k * x - omega * state.time);
+                const y = yCenter1 - dx * curveAmp;
+                if (x === padding) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // 2. Density Wave
+            ctx.beginPath();
+            ctx.strokeStyle = '#34d399';
+            ctx.lineWidth = 2;
+            for (let x = padding; x <= width - padding; x += 2) {
+                const density = -Math.cos(k * x - omega * state.time);
+                const y = yCenter2 - density * curveAmp;
+                if (x === padding) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // 3. Pressure Wave
+            ctx.beginPath();
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            for (let x = padding; x <= width - padding; x += 2) {
+                const pressure = -Math.cos(k * x - omega * state.time);
+                const y = yCenter3 - pressure * curveAmp;
+                if (x === padding) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        let frameCount = 0;
+        let lastFpsUpdate = 0;
+
+        function animate(timestamp) {
+            if (!state.lastTimestamp) state.lastTimestamp = timestamp;
+            const dt = (timestamp - state.lastTimestamp) / 1000;
+            state.lastTimestamp = timestamp;
+
+            // FPS Counter
+            frameCount++;
+            if (timestamp - lastFpsUpdate >= 500) {
+                const fps = Math.round((frameCount * 1000) / (timestamp - lastFpsUpdate));
+                fpsDisplay.textContent = fps;
+                frameCount = 0;
+                lastFpsUpdate = timestamp;
+            }
+
+            if (state.isPlaying) {
+                state.time += dt;
+            }
+
+            if (particleCtxInfo && chartCtxInfo) {
+                renderParticles(particleCtxInfo.ctx, particleCtxInfo.width, particleCtxInfo.height);
+                renderCharts(chartCtxInfo.ctx, chartCtxInfo.width, chartCtxInfo.height);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Initialization
+        window.addEventListener('load', () => {
+            handleResize();
+            updateDerivedPhysics();
+            requestAnimationFrame(animate);
+        });
+
+        window.addEventListener('resize', handleResize);
+    </script>
+</body>
+</html>
